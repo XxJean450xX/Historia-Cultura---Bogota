@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bogotá Memoria Viva — Historias Ocultas</title>
+
+    <!-- Fuentes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- 1. Leaflet Base (CSS y JS en orden correcto) -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+    <!-- 2. Leaflet Rotate Plugin (CSS y JS) -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.css"
+    />
+    <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
+
+    <style>
+      :root {
+        --papel: #e7d9b9;
+        --papel-tarjeta: #f2e9d6;
+        --tinta: #241c15;
+        --tinta-suave: #4a4032;
+        --ladrillo: #b11b00;
+        --ladrillo-oscuro: #6d2c20;
+        --verde-cerro: #45593a;
+        --laton: #a9852e;
+        --sombra: rgba(36, 28, 21, 0.35);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Work Sans", sans-serif;
+        color: var(--tinta);
+        background: var(--papel);
+      }
+
+      .seccion-mapa {
+        position: relative;
+        width: 100%;
+        height: 100vh;
+        min-height: 560px;
+        overflow: hidden;
+        background: var(--tinta);
+      }
+
+      .contenedor-mapa {
+        width: 100%;
+        height: 100%;
+      }
+
+      .leaflet-tile-pane {
+        filter: sepia(0.55) saturate(0.65) contrast(1.08) brightness(0.9);
+      }
+
+      .leaflet-control-zoom {
+        border: 1px solid var(--tinta) !important;
+        border-radius: 2px !important;
+        overflow: hidden;
+      }
+      .leaflet-control-zoom a {
+        background: var(--papel-tarjeta) !important;
+        color: var(--tinta) !important;
+        font-family: "Fraunces", serif;
+      }
+      .leaflet-control-attribution {
+        background: rgba(231, 217, 185, 0.85) !important;
+        font-family: "Work Sans", sans-serif;
+        font-size: 10px;
+      }
+
+      .cartucho {
+        position: absolute;
+        top: 28px;
+        left: 28px;
+        z-index: 500;
+        max-width: 340px;
+        background: var(--papel-tarjeta);
+        border: 1px solid var(--tinta);
+        padding: 22px 24px;
+        box-shadow: 6px 6px 0 var(--sombra);
+      }
+
+      .cartucho h1 {
+        font-family: "Fraunces", serif;
+        font-weight: 600;
+        font-size: 1.9rem;
+        line-height: 1.05;
+        color: var(--ladrillo-oscuro);
+      }
+
+      .cartucho p {
+        margin-top: 8px;
+        font-size: 0.92rem;
+        color: var(--tinta-suave);
+        line-height: 1.4;
+      }
+
+      /* Marcador en forma de PIN de ubicación */
+      .marcador-pin {
+        position: relative;
+        width: 30px;
+        height: 42px;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+      }
+
+      .marcador-nucleo {
+        width: 30px;
+        height: 30px;
+        background: var(--ladrillo);
+        border: 2px solid var(--papel-tarjeta);
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        box-shadow: 0 3px 6px var(--sombra);
+        transition:
+          transform 0.2s ease,
+          background 0.2s ease;
+        z-index: 2;
+        position: relative;
+      }
+
+      .marcador-nucleo::after {
+        content: "";
+        width: 10px;
+        height: 10px;
+        background: var(--papel-tarjeta);
+        border-radius: 50%;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      .marcador-pin:hover .marcador-nucleo {
+        transform: rotate(-45deg) scale(1.2);
+        background: var(--laton);
+      }
+
+      .marcador-anillo {
+        position: absolute;
+        bottom: 0;
+        width: 16px;
+        height: 8px;
+        background: var(--ladrillo);
+        border-radius: 50%;
+        opacity: 0.5;
+        animation: pulso-base 2.4s ease-out infinite;
+        z-index: 1;
+      }
+
+      @keyframes pulso-base {
+        0% {
+          transform: scale(0.5);
+          opacity: 0.6;
+        }
+        100% {
+          transform: scale(2.2);
+          opacity: 0;
+        }
+      }
+
+      /* Modal y Carrusel */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(36, 28, 21, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.25s ease;
+        padding: 24px;
+      }
+
+      .modal-overlay.activo {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .modal-tarjeta {
+        background: var(--papel-tarjeta);
+        width: min(760px, 100%);
+        max-height: 88vh;
+        overflow-y: auto;
+        border: 1px solid var(--tinta);
+        box-shadow: 10px 10px 0 var(--sombra);
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        transform: scale(0.92);
+        transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        position: relative;
+      }
+
+      .modal-overlay.activo .modal-tarjeta {
+        transform: scale(1);
+      }
+
+      .boton-cerrar {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 5;
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--tinta);
+        background: var(--papel-tarjeta);
+        color: var(--tinta);
+        font-size: 1.3rem;
+        line-height: 1;
+        cursor: pointer;
+        border-radius: 50%;
+      }
+      .boton-cerrar:hover {
+        background: var(--ladrillo);
+        color: var(--papel-tarjeta);
+        border-color: var(--ladrillo);
+      }
+
+      .modal-imagen-contenedor {
+        background: var(--tinta);
+        padding: 20px 16px 28px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .carrusel {
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+        border: 8px solid var(--papel-tarjeta);
+        box-shadow: 0 6px 14px var(--sombra);
+        transform: rotate(-2deg);
+      }
+
+      .carrusel-pista {
+        display: flex;
+        transition: transform 0.35s ease;
+      }
+
+      .carrusel-pista img {
+        width: 100%;
+        flex-shrink: 0;
+        aspect-ratio: 3/4;
+        object-fit: cover;
+        background: #3a2f24;
+        display: block;
+      }
+
+      .carrusel-flecha {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 1px solid var(--tinta);
+        background: var(--papel-tarjeta);
+        color: var(--tinta);
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 3;
+      }
+
+      .carrusel-flecha:hover {
+        background: var(--ladrillo);
+        color: var(--papel-tarjeta);
+        border-color: var(--ladrillo);
+      }
+
+      .carrusel-flecha-izq {
+        left: 8px;
+      }
+      .carrusel-flecha-der {
+        right: 8px;
+      }
+
+      .carrusel-puntos {
+        position: absolute;
+        bottom: 8px;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        z-index: 3;
+      }
+
+      .carrusel-punto {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: rgba(242, 233, 214, 0.5);
+        cursor: pointer;
+        border: none;
+        padding: 0;
+      }
+
+      .carrusel-punto.activo {
+        background: var(--papel-tarjeta);
+      }
+
+      .modal-contenido {
+        padding: 34px 30px 30px 24px;
+      }
+
+      .modal-contenido h2 {
+        font-family: "Fraunces", serif;
+        font-weight: 700;
+        font-size: 1.7rem;
+        color: var(--ladrillo-oscuro);
+        line-height: 1.15;
+        padding-right: 30px;
+      }
+
+      .modal-contenido p {
+        margin-top: 16px;
+        font-size: 0.98rem;
+        line-height: 1.6;
+        color: var(--tinta-suave);
+        max-width: 62ch;
+      }
+
+      .modal-secretos {
+        margin-top: 22px;
+        border-top: 1px solid rgba(36, 28, 21, 0.2);
+        padding-top: 16px;
+      }
+
+      .modal-secretos h3 {
+        font-family: "Fraunces", serif;
+        font-size: 1.02rem;
+        font-weight: 600;
+        color: var(--verde-cerro);
+        margin-bottom: 10px;
+      }
+
+      .modal-secretos ul {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .modal-secretos li {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: var(--tinta-suave);
+        padding-left: 16px;
+        position: relative;
+      }
+
+      .modal-secretos li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 6px;
+        height: 6px;
+        background: var(--laton);
+        border-radius: 50%;
+      }
+
+      @media (max-width: 720px) {
+        .cartucho {
+          left: 16px;
+          right: 16px;
+          top: 16px;
+          max-width: none;
+        }
+
+        .modal-overlay {
+          align-items: flex-end;
+          padding: 0;
+        }
+
+        .modal-tarjeta {
+          grid-template-columns: 1fr;
+          width: 100%;
+          max-height: 86vh;
+          border-left: none;
+          border-right: none;
+          border-bottom: none;
+          box-shadow: none;
+          transform: translateY(100%);
+          border-radius: 18px 18px 0 0;
+        }
+
+        .modal-overlay.activo .modal-tarjeta {
+          transform: translateY(0);
+        }
+
+        .modal-tarjeta::before {
+          content: "";
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 44px;
+          height: 4px;
+          border-radius: 2px;
+          background: var(--tinta-suave);
+          opacity: 0.4;
+        }
+
+        .modal-imagen-contenedor {
+          padding: 26px 16px 10px 16px;
+        }
+
+        .carrusel {
+          transform: none;
+        }
+
+        .carrusel-pista img {
+          aspect-ratio: 16/9;
+        }
+
+        .modal-contenido {
+          padding: 20px 20px 32px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="seccion-mapa">
+      <div class="cartucho">
+        <h1>Bogotá Memoria Viva</h1>
+        <p>
+          Toca un punto sobre el plano para descubrir las historias ocultas del
+          Centro Internacional.
+        </p>
+      </div>
+      <div id="mapa" class="contenedor-mapa"></div>
+    </section>
+
+    <div id="modal-overlay" class="modal-overlay">
+      <div class="modal-tarjeta">
+        <button id="boton-cerrar" class="boton-cerrar" aria-label="Cerrar">
+          ×
+        </button>
+        <div class="modal-imagen-contenedor">
+          <div class="carrusel" id="carrusel">
+            <div class="carrusel-pista" id="carrusel-pista"></div>
+            <button
+              class="carrusel-flecha carrusel-flecha-izq"
+              id="carrusel-anterior"
+              aria-label="Imagen anterior"
+            >
+              ‹
+            </button>
+            <button
+              class="carrusel-flecha carrusel-flecha-der"
+              id="carrusel-siguiente"
+              aria-label="Imagen siguiente"
+            >
+              ›
+            </button>
+            <div class="carrusel-puntos" id="carrusel-puntos"></div>
+          </div>
+        </div>
+        <div class="modal-contenido">
+          <h2 id="modal-titulo"></h2>
+          <p id="modal-historia"></p>
+          <div id="modal-secretos" class="modal-secretos"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const lugaresBogota = [
+        {
+          id: "1",
+          nombre: "Parque Central Bavaria",
+          coordenadas: { lat: 4.617, lng: -74.07 },
+          imagenes: [
+            "https://lh3.googleusercontent.com/d/18B71aW1gHFX0A8UfWHA9y-M1pungnc0V",
+            "https://lh3.googleusercontent.com/d/1Cm_7Knj3w8E-FNwpBnYoXX69EJryrFJh",
+            "https://lh3.googleusercontent.com/d/1BsLlF2VwZfr4Oo-XkMR87yxe_fwWbWwi",
+          ],
+          historia:
+            "A finales del siglo XIX (1889), el empresario alemán Leo Kopp adquirió este predio en San Diego para fundar la fábrica de cerveza Bavaria, que operó desde 1891. Tras el traslado de la producción a Techo en 1973, el lote quedó abandonado hasta que entre 1988 y 1998 se transformó en el Parque Central Bavaria, declarado Bien de Interés Cultural en 2002.",
+          secretos: [
+            "Durante más de 80 años el centro de Bogotá olía a cebada tostada y lúpulo, no a smog.",
+            "Leo Kopp construyó el barrio La Perseverancia para sus obreros; su estatua en el Cementerio Central recibe hoy peticiones de trabajo.",
+            'Las estructuras de ladrillo rojo eran "Las Cavas" y "Las Falcas", antiguos depósitos y calderas de cocción.',
+            "El parque se diseñó como corredor de ventilación entre la Avenida Caracas y los cerros orientales.",
+          ],
+        },
+        {
+          id: "2",
+          nombre: "Facultad de Ingeniería — Universidad Distrital",
+          coordenadas: { lat: 4.6282, lng: -74.066 },
+          imagenes: [
+            "https://lh3.googleusercontent.com/d/1OhhShX183n70SvL2x0n8G3Wt9p5SKW6c",
+            "https://lh3.googleusercontent.com/d/1P6oPhSt9lyqgpUk32pt7IlqriHamgG61",
+            "https://lh3.googleusercontent.com/d/1wZXD0o5_K9wiselxH8M9SS3wSc84soNt",
+          ],
+          historia:
+            "Epicentro histórico de la formación técnica pública de Bogotá. Tras años en sedes prestadas, la universidad adquirió este predio en diciembre de 1960 para consolidar sus programas de ingeniería. El complejo creció con el tiempo hasta integrar estructuras como el Edificio Sabio Caldas, consolidándose como nodo de investigación y vida universitaria.",
+          secretos: [
+            "Antes de 1960 la Distrital dictaba clases en salones prestados, una casa de La Merced e incluso oficinas de Ferrocarriles Nacionales.",
+            'El lote contiguo era una bodega de Obras Públicas del Distrito; al anexarlo, los estudiantes lo bautizaron "Patio Bonito".',
+            "Sus primeros computadores llenaban salas tipo búnker; el código se entregaba en tarjetas perforadas por una ventanilla.",
+            "Aquí se consolidó Ingeniería Catastral y Geodesia, cuyos egresados trazaron los primeros mapas de infraestructura de Bogotá.",
+          ],
+        },
+        {
+          id: "3",
+          nombre: "Bulevar de la Calle 42",
+          coordenadas: { lat: 4.6293, lng: -74.066 },
+          imagenes: [
+            "https://lh3.googleusercontent.com/d/1tSFqJT4sUKidNkBTv3xWUxXYvU8pto2K",
+          ],
+          historia:
+            "Pasaje peatonal que articula el movimiento estudiantil entre la Avenida Caracas, la Carrera Séptima y la zona universitaria. Durante la segunda mitad del siglo XX se consolidó como zona de papelerías, tipografías, librerías y punto de encuentro para la comunidad de la Distrital, la Javeriana y la Piloto.",
+          secretos: [
+            "Es el punto exacto donde convergen la educación pública y la privada, a solo metros de distancia.",
+            "Sus fotocopiadoras y tipografías imprimieron fanzines y textos que circularon en las protestas de los años 70 y 80.",
+            "Muchas cafeterías funcionan en antiguas casonas inglesas y tudor de los años 30 y 40.",
+          ],
+        },
+        {
+          id: "4",
+          nombre: "Parque Nacional Enrique Olaya Herrera",
+          coordenadas: { lat: 4.6242, lng: -74.0655 },
+          imagenes: [
+            "https://lh3.googleusercontent.com/d/1aTiaxFkeKtS6WW-Np-eeG2lD9j9FFdEr",
+            "https://lh3.googleusercontent.com/d/1lDSTCchHYp_wmEI1QcowlHb800wj-XGH",
+            "https://lh3.googleusercontent.com/d/1a2rvwG0sOnQQcHd_iIEKt54XFYgog4rE",
+            "https://lh3.googleusercontent.com/d/1GhgfjIftT7dSB94bmUAzjdtcuOC-7ckf",
+            "https://lh3.googleusercontent.com/d/1MlYdLo9GjoEWU-ebnKtFDKHQ3uoQnGHK",
+          ],
+          historia:
+            "Inaugurado en 1934 por el presidente Enrique Olaya Herrera para celebrar el IV Centenario de Bogotá, es uno de los parques más antiguos de la ciudad. Con marcada influencia europea, se extiende desde la Carrera Séptima hasta los Cerros Orientales, albergando monumentos, ríos nativos y el icónico Teatro del Parque Nacional.",
+          secretos: [
+            "El parque es atravesado por el Río Arzobispo, encauzado en los años 30 para crear fuentes y espejos de agua.",
+            "Su teatro de títeres, construido en 1936, fue uno de los primeros teatros públicos dedicados a la infancia.",
+            "El monumento a Rafael Uribe Uribe, esculpido en Italia e inaugurado en 1940, lo convirtió en centro ceremonial patrio.",
+            "Por su cercanía al poder, ha sido el punto de llegada histórico de marchas indígenas, campesinas y sindicales.",
+          ],
+        },
+        {
+          id: "5",
+          nombre: "Hotel Tequendama",
+          coordenadas: { lat: 4.6132, lng: -74.0703 },
+          imagenes: [
+            "https://lh3.googleusercontent.com/d/1luyzq4X_lcjQKF-i7Gsu4wNXSIOmuhvH",
+          ],
+          historia:
+            "Construido entre 1950 y 1953 por Cuéllar Serrano Gómez junto a Intercontinental Hotels, fue el hotel más moderno de Colombia en su época. Con 17 pisos iniciales, ampliados en 1967, se convirtió en el epicentro social, diplomático y político del país, alojando presidentes, reyes y delegaciones internacionales.",
+          secretos: [
+            "La obra avanzaba tan rápido que bogotanos asistían los domingos a contar los pisos nuevos como espectáculo urbano.",
+            "En 1964 se fabricó una cama especial de más de dos metros para la visita de Charles de Gaulle.",
+            "En sus salones se negociaron de madrugada varios artículos de la Constitución de 1991.",
+            "Fue el primer edificio de Bogotá con agua caliente centralizada y ascensores automáticos de alta velocidad.",
+          ],
+        },
+        {
+          id: "6",
+          nombre: "Centro Comercial San Martín",
+          coordenadas: { lat: 4.6182, lng: -74.0681 },
+          imagenes: [
+            "https://lh3.googleusercontent.com/d/1whVhH-WyAOtpQ3TYGWWWIk07EYf61Xnx",
+          ],
+          historia:
+            "Ubicado sobre la Carrera 7ª con Calle 32, fue uno de los pioneros del concepto de centro comercial urbano en el centro ampliado de Bogotá, sirviendo como punto de transición entre Teusaquillo, La Merced y el Centro Internacional.",
+          secretos: [
+            "Nació cuando aún no existían centros comerciales periféricos como Unicentro; las compras de lujo se hacían a pie por la Séptima.",
+            "Albergó salas de cine icónicas del circuito cultural del centro, antes de la llegada de los multiplexes.",
+            "En los 70 y 80 fue punto neurálgico de las primeras tiendas de marcas y aerolíneas internacionales, por su cercanía al Tequendama.",
+          ],
+        },
+        {
+          id: "7",
+          nombre: "Museo Nacional de Colombia",
+          coordenadas: { lat: 4.6158, lng: -74.0688 },
+          imagenes: [
+            "https://lh3.googleusercontent.com/d/1Uiaj--YVVzs4uU-wxq9NTyUGHRCicjh9",
+            "https://lh3.googleusercontent.com/d/1D562Fyn5J3PlLUb7tl5mhXE_PvwdZr1I",
+            "https://lh3.googleusercontent.com/d/1priO6PFjYADFABRIxhqlmmY1pOqj8U_2",
+          ],
+          historia:
+            "Es el museo más antiguo de Colombia, fundado en 1823. Su sede actual es la edificación panóptica diseñada por el arquitecto danés Thomas Reed, que funcionó como Penitenciaría Central de Cundinamarca entre 1874 y 1946, antes de ser adaptada como museo en 1948.",
+          secretos: [
+            "Las salas de exposición eran los pasillos de celdas de la cárcel; el diseño panóptico permitía vigilar todo desde una torre central.",
+            "Entre sus muros estuvieron recluidos el poeta Adolfo León Gómez y políticos de varias guerras civiles del siglo XIX.",
+            "Sus muros de más de metro y medio de ancho le permitieron resistir terremotos e incendios, como los del Bogotazo de 1948.",
+            "Aún se conservan elementos originales de la prisión bajo las salas de arte y arqueología.",
+          ],
+        },
+      ];
+
+      function crearIconoMarcador() {
+        return L.divIcon({
+          className: "",
+          html: '<div class="marcador-pin"><div class="marcador-anillo"></div><div class="marcador-nucleo"></div></div>',
+          iconSize: [30, 42],
+          iconAnchor: [15, 42],
+        });
+      }
+
+      function inicializarMapa() {
+        // Inicializar mapa con soporte de rotación habilitado
+        const mapa = L.map("mapa", {
+          zoomControl: false,
+          scrollWheelZoom: false,
+          minZoom: 14,
+          maxZoom: 18,
+          rotate: true,
+          touchRotate: true,
+          rotateControl: {
+            closeOnCompassClick: false,
+          },
+        }).setView([4.6205, -74.0675], 16);
+
+        // FORZAR ROTACIÓN A -90 GRADOS
+        if (typeof mapa.setBearing === "function") {
+          mapa.setBearing(-90);
+        }
+
+        // Capa Esri World Street Map (Libre de API Key)
+        L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+          {
+            maxZoom: 22,
+            attribution: "Tiles &copy; Esri",
+          },
+        ).addTo(mapa);
+
+        L.control.zoom({ position: "bottomright" }).addTo(mapa);
+
+        lugaresBogota.forEach((lugar) => {
+          const marcador = L.marker(
+            [lugar.coordenadas.lat, lugar.coordenadas.lng],
+            {
+              icon: crearIconoMarcador(),
+            },
+          ).addTo(mapa);
+
+          marcador.on("click", () => abrirModal(lugar));
+        });
+
+        return mapa;
+      }
+
+      // Lógica del Carrusel
+      let indiceCarrusel = 0;
+      let totalImagenesCarrusel = 0;
+      let inicioToqueX = 0;
+
+      function renderizarCarrusel(imagenes, nombreLugar) {
+        const pista = document.getElementById("carrusel-pista");
+        pista.innerHTML = imagenes
+          .map((url) => `<img src="${url}" alt="${nombreLugar}">`)
+          .join("");
+
+        const puntosContenedor = document.getElementById("carrusel-puntos");
+        puntosContenedor.innerHTML =
+          imagenes.length > 1
+            ? imagenes
+                .map(
+                  (_, indice) =>
+                    `<button class="carrusel-punto" data-indice="${indice}" aria-label="Ir a la imagen ${indice + 1}"></button>`,
+                )
+                .join("")
+            : "";
+
+        const mostrarControles = imagenes.length > 1 ? "flex" : "none";
+        document.getElementById("carrusel-anterior").style.display =
+          mostrarControles;
+        document.getElementById("carrusel-siguiente").style.display =
+          mostrarControles;
+
+        indiceCarrusel = 0;
+        totalImagenesCarrusel = imagenes.length;
+        actualizarCarrusel();
+      }
+
+      function actualizarCarrusel() {
+        const pista = document.getElementById("carrusel-pista");
+        pista.style.transform = `translateX(-${indiceCarrusel * 100}%)`;
+
+        document
+          .querySelectorAll(".carrusel-punto")
+          .forEach((punto, indice) => {
+            punto.classList.toggle("activo", indice === indiceCarrusel);
+          });
+      }
+
+      function moverCarrusel(direccion) {
+        if (totalImagenesCarrusel === 0) return;
+        indiceCarrusel =
+          (indiceCarrusel + direccion + totalImagenesCarrusel) %
+          totalImagenesCarrusel;
+        actualizarCarrusel();
+      }
+
+      function abrirModal(lugar) {
+        renderizarCarrusel(lugar.imagenes, lugar.nombre);
+        document.getElementById("modal-titulo").textContent = lugar.nombre;
+        document.getElementById("modal-historia").textContent = lugar.historia;
+
+        const contenedorSecretos = document.getElementById("modal-secretos");
+        if (lugar.secretos && lugar.secretos.length) {
+          const items = lugar.secretos.map((s) => `<li>${s}</li>`).join("");
+          contenedorSecretos.innerHTML = `<h3>Secretos y huellas del lugar</h3><ul>${items}</ul>`;
+        } else {
+          contenedorSecretos.innerHTML = "";
+        }
+
+        document.getElementById("modal-overlay").classList.add("activo");
+        document.body.style.overflow = "hidden";
+      }
+
+      function cerrarModal() {
+        document.getElementById("modal-overlay").classList.remove("activo");
+        document.body.style.overflow = "";
+      }
+
+      document
+        .getElementById("boton-cerrar")
+        .addEventListener("click", cerrarModal);
+
+      document
+        .getElementById("carrusel-anterior")
+        .addEventListener("click", () => moverCarrusel(-1));
+      document
+        .getElementById("carrusel-siguiente")
+        .addEventListener("click", () => moverCarrusel(1));
+
+      document
+        .getElementById("carrusel-puntos")
+        .addEventListener("click", (evento) => {
+          if (evento.target.dataset.indice !== undefined) {
+            indiceCarrusel = Number(evento.target.dataset.indice);
+            actualizarCarrusel();
+          }
+        });
+
+      document
+        .getElementById("carrusel")
+        .addEventListener("touchstart", (evento) => {
+          inicioToqueX = evento.touches[0].clientX;
+        });
+
+      document
+        .getElementById("carrusel")
+        .addEventListener("touchend", (evento) => {
+          const diferencia = evento.changedTouches[0].clientX - inicioToqueX;
+          if (diferencia > 40) moverCarrusel(-1);
+          if (diferencia < -40) moverCarrusel(1);
+        });
+
+      document
+        .getElementById("modal-overlay")
+        .addEventListener("click", (evento) => {
+          if (evento.target.id === "modal-overlay") cerrarModal();
+        });
+
+      document.addEventListener("keydown", (evento) => {
+        if (evento.key === "Escape") cerrarModal();
+      });
+
+      window.addEventListener("DOMContentLoaded", () => {
+        inicializarMapa();
+      });
+    </script>
+  </body>
+</html>
