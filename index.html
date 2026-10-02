@@ -4,7 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bogotá Memoria Viva — Historias Ocultas</title>
+    <!-- 1. Leaflet Base -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
+    <!-- 2. Leaflet Rotate Plugin (Usando CDN funcional) -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
     <!-- Fuentes -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
@@ -443,6 +455,22 @@
           padding: 20px 20px 32px 20px;
         }
       }
+
+      /* GALERIA DE ARTE - Pin azul (reutiliza el mismo diseño del pin) */
+      .marcador-azul {
+        --ladrillo: #1e6fd9;
+        --laton: #0b4fa8; /* color en hover */
+      }
+      .enlace-galeria {
+        font-family: "Fraunces", serif;
+        font-weight: 600;
+        color: #1e6fd9;
+        text-decoration: none;
+        font-size: 0.95rem;
+      }
+      .enlace-galeria:hover {
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
@@ -614,10 +642,10 @@
         },
       ];
 
-      function crearIconoMarcador() {
+      function crearIconoMarcador(clase = "") {
         return L.divIcon({
           className: "",
-          html: '<div class="marcador-pin"><div class="marcador-anillo"></div><div class="marcador-nucleo"></div></div>',
+          html: `<div class="marcador-pin ${clase}"><div class="marcador-anillo"></div><div class="marcador-nucleo"></div></div>`,
           iconSize: [30, 42],
           iconAnchor: [15, 42],
         });
@@ -663,6 +691,16 @@
 
           marcador.on("click", () => abrirModal(lugar));
         });
+
+        // Pin azul: Galería Museo del Tequendama
+        const pinGaleria = L.marker([4.6136, -74.0708], {
+          icon: crearIconoMarcador("marcador-azul"),
+        }).addTo(mapa);
+
+        pinGaleria.bindPopup(
+          '<a class="enlace-galeria" href="galeriaTequendama.html">VER GALERÍA DEL ARTE DEL HOTEL</a>',
+          { closeButton: false, offset: [0, -34] },
+        );
 
         return mapa;
       }

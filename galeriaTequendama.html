@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Galería — Museo del Tequendama</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --papel: #e7d9b9;
+        --papel-tarjeta: #f2e9d6;
+        --tinta: #241c15;
+        --tinta-suave: #4a4032;
+        --ladrillo-oscuro: #6d2c20;
+        --sombra: rgba(36, 28, 21, 0.35);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Work Sans", sans-serif;
+        background: var(--papel);
+        color: var(--tinta);
+      }
+      header {
+        padding: 28px 20px 8px;
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      .volver {
+        color: var(--ladrillo-oscuro);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      h1 {
+        font-family: "Fraunces", serif;
+        font-size: clamp(1.7rem, 5vw, 2.6rem);
+        color: var(--ladrillo-oscuro);
+        margin-top: 10px;
+      }
+      header p {
+        margin-top: 6px;
+        color: var(--tinta-suave);
+      }
+      .galeria {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 20px;
+        display: grid;
+        gap: 22px;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      }
+      .foto {
+        background: var(--papel-tarjeta);
+        border: 1px solid var(--tinta);
+        box-shadow: 6px 6px 0 var(--sombra);
+        cursor: pointer;
+      }
+      .foto img {
+        width: 100%;
+        aspect-ratio: 4/3;
+        object-fit: cover;
+        display: block;
+        background: #3a2f24;
+      }
+      .foto figcaption {
+        padding: 14px 16px;
+        font-size: 0.92rem;
+        line-height: 1.55;
+        color: var(--tinta-suave);
+      }
+      .foto figcaption strong {
+        display: block;
+        font-family: "Fraunces", serif;
+        color: var(--ladrillo-oscuro);
+        font-size: 1.05rem;
+        margin-bottom: 4px;
+      }
+      #visor {
+        position: fixed;
+        inset: 0;
+        background: rgba(36, 28, 21, 0.85);
+        z-index: 10;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        cursor: zoom-out;
+      }
+      #visor.activo {
+        display: flex;
+      }
+      #visor img {
+        max-width: 100%;
+        max-height: 90vh;
+        border: 8px solid var(--papel-tarjeta);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="volver" href="index.html">← Volver al mapa</a>
+      <h1>Galería del Museo del Tequendama</h1>
+      <p>Toca una foto para verla en grande.</p>
+    </header>
+
+    <main class="galeria" id="galeria"></main>
+    <div id="visor"><img alt="" /></div>
+
+    <script>
+      // Para cada foto: src y (opcional) titulo y relato.
+      // Si no quieres micro relato, deja solo el src.
+      const fotos = [
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+        {
+          src: "img/tequendama-1.jpg",
+          titulo: "Título de la foto",
+          relato: "Aquí va tu micro relato.",
+        },
+      ];
+      //--------------------------------
+
+
+
+
+      const contenedor = document.getElementById("galeria");
+      contenedor.innerHTML = fotos
+        .map(
+          (f, i) => `
+  <figure class="foto" data-i="${i}">
+    <img src="${f.src}" alt="${f.titulo || "Foto del Museo del Tequendama"}" loading="lazy" />
+    ${
+      f.titulo || f.relato
+        ? `<figcaption>
+      ${f.titulo ? `<strong>${f.titulo}</strong>` : ""}${f.relato || ""}
+    </figcaption>`
+        : ""
+    }
+  </figure>`,
+        )
+        .join("");
+
+      const visor = document.getElementById("visor");
+      contenedor.addEventListener("click", (e) => {
+        const foto = e.target.closest(".foto");
+        if (!foto) return;
+        visor.querySelector("img").src = fotos[foto.dataset.i].src;
+        visor.classList.add("activo");
+      });
+      visor.addEventListener("click", () => visor.classList.remove("activo"));
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") visor.classList.remove("activo");
+      });
+    </script>
+  </body>
+</html>
